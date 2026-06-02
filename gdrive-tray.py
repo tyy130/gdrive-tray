@@ -152,7 +152,7 @@ def build_menu(icon, mounted: bool):
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Mount", mount, enabled=not mounted),
         pystray.MenuItem("Unmount", unmount, enabled=mounted),
-        pystray.MenuItem("Open folder", open_folder, enabled=mounted),
+        pystray.MenuItem("Open folder", open_folder, enabled=mounted, default=True),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", lambda icon, item: icon.stop()),
     )
