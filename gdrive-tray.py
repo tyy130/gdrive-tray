@@ -5,6 +5,8 @@ Color icon = mounted, greyscale = unmounted.
 Double-click (or middle-click) the icon to open the folder.
 """
 
+import fcntl
+import signal
 import subprocess
 import threading
 import os
@@ -31,6 +33,24 @@ SCRIPT_DIR  = Path(__file__).parent
 ICON_SRC    = SCRIPT_DIR / "gdrive-icon.png"
 REMOTE      = "gdrive:"
 MOUNT_POINT = Path("/home/tyler/CloudDrive")
+LOCK_PATH   = Path(tempfile.gettempdir()) / "gdrive-tray.lock"
+
+# Held open for the lifetime of the process; the flock is released (and the
+# app can be started again) only when this fd is closed, which happens on
+# exit no matter how the process ends. Without this, launching the app twice
+# (e.g. autostart plus a manual launch) creates a second indicator icon that
+# makes "Quit" look like it instantly respawned.
+_lock_file = None
+
+
+def _acquire_single_instance_lock():
+    global _lock_file
+    _lock_file = open(LOCK_PATH, "w")
+    try:
+        fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("gdrive-tray is already running.")
+        sys.exit(1)
 
 # Build PNG temp files for mounted/unmounted states at startup
 def _build_icons():
@@ -98,7 +118,7 @@ class GDriveTray:
         self.menu.append(Gtk.SeparatorMenuItem())
 
         quit_item = Gtk.MenuItem(label="Quit")
-        quit_item.connect("activate", lambda _: Gtk.main_quit())
+        quit_item.connect("activate", self._on_quit)
         self.menu.append(quit_item)
 
         self.menu.show_all()
@@ -161,9 +181,24 @@ class GDriveTray:
         GLib.idle_add(self._notify, "GDrive", "Unmounted")
         self._refresh()
 
+    def _on_quit(self, _):
+        self._shutdown()
+
+    def _shutdown(self, *_):
+        # Hide the icon immediately so there's no visible lag before the
+        # process actually exits.
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.PASSIVE)
+        Notify.uninit()
+        Gtk.main_quit()
+
     def run(self):
+        # Let Ctrl+C / systemd-style SIGTERM shut down cleanly too, instead
+        # of leaving the lock held (which would block the next launch).
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, self._shutdown)
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, self._shutdown)
         Gtk.main()
 
 
 if __name__ == "__main__":
+    _acquire_single_instance_lock()
     GDriveTray().run()
