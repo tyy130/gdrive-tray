@@ -7,10 +7,11 @@ Double-click (or middle-click) the icon to open the folder.
 
 import subprocess
 import threading
-import os
 import sys
 import tempfile
 from pathlib import Path
+
+from gdrive_config import get_mount_point, get_remote
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -29,8 +30,8 @@ APP_ID      = "com.tacticdev.gdrive-tray"
 APP_NAME    = "GDrive"
 SCRIPT_DIR  = Path(__file__).parent
 ICON_SRC    = SCRIPT_DIR / "gdrive-icon.png"
-REMOTE      = "gdrive:"
-MOUNT_POINT = Path("/home/tyler/CloudDrive")
+REMOTE      = get_remote()
+MOUNT_POINT = get_mount_point()
 
 # Build PNG temp files for mounted/unmounted states at startup
 def _build_icons():
@@ -44,14 +45,12 @@ def _build_icons():
     grey_img = Image.fromarray(grey, "RGBA").resize((64, 64), Image.LANCZOS)
 
     # Write to stable temp paths (AppIndicator needs a file path)
-    color_path = "/tmp/gdrive-icon-color.png"
-    grey_path  = "/tmp/gdrive-icon-grey.png"
+    temp_dir = Path(tempfile.gettempdir())
+    color_path = temp_dir / "gdrive-icon-color.png"
+    grey_path = temp_dir / "gdrive-icon-grey.png"
     color.save(color_path)
     grey_img.save(grey_path)
     return color_path, grey_path
-
-ICON_COLOR, ICON_GREY = _build_icons()
-
 
 def is_mounted() -> bool:
     return subprocess.run(
@@ -62,9 +61,10 @@ def is_mounted() -> bool:
 
 class GDriveTray:
     def __init__(self):
+        self.icon_color, self.icon_grey = _build_icons()
         self.indicator = AppIndicator3.Indicator.new(
             APP_ID,
-            ICON_COLOR,
+            str(self.icon_color),
             AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
         )
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
@@ -113,7 +113,7 @@ class GDriveTray:
 
     def _apply_state(self, mounted):
         self.indicator.set_icon_full(
-            ICON_COLOR if mounted else ICON_GREY,
+            str(self.icon_color if mounted else self.icon_grey),
             "Mounted" if mounted else "Unmounted",
         )
         self.status_item.set_label("● Mounted" if mounted else "○ Not mounted")
