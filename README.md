@@ -52,18 +52,18 @@ rclone config
 # Follow prompts → choose Google Drive → name the remote "gdrive"
 ```
 
-The app expects a remote named `gdrive:` by default. Change `REMOTE` at the top of `gdrive-tray.py` if yours differs.
+The app expects a remote named `gdrive:` by default. Set `GDRIVE_REMOTE` if yours differs.
 
 ---
 
 ## Configuration
 
-Edit the constants at the top of `gdrive-tray.py`:
+Set either environment variable in your shell or desktop session before launching:
 
-| Variable      | Default        | Description           |
-| ------------- | -------------- | --------------------- |
-| `REMOTE`      | `"gdrive:"`    | rclone remote name    |
-| `MOUNT_POINT` | `~/CloudDrive` | Local mount directory |
+| Environment variable | Default        | Description           |
+| -------------------- | -------------- | --------------------- |
+| `GDRIVE_REMOTE`      | `gdrive:`      | rclone remote name    |
+| `GDRIVE_MOUNT_POINT` | `~/CloudDrive` | Local mount directory |
 
 ---
 
